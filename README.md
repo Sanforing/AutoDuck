@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/images/icon-512.png" width="160" alt="AutoDuck icon: a yellow duck quacking soundwaves at a volume-down symbol">
+  <img src="docs/images/icon-512.png" width="160" alt="Mr. AutoDuck icon: a yellow duck quacking soundwaves at a volume-down symbol">
 </p>
 
-<h1 align="center">AutoDuck</h1>
+<h1 align="center">Mr. AutoDuck</h1>
 
-<p align="center"><strong>Play your music loud. When someone in the room talks to you, AutoDuck turns it down — and back up when they're done.</strong><br>
-A tiny macOS menu-bar app. On-device, open source, and the duck falls asleep when the music rests.</p>
+<p align="center"><strong>Play your music loud. When someone in the room talks to you, Mr. AutoDuck turns it down for you — and back up when they're done.</strong><br>
+A tiny macOS menu-bar app. On-device, open source, and he falls asleep in your menu bar while the music rests.</p>
 
 <p align="center">
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple&logoColor=white">
@@ -17,7 +17,7 @@ A tiny macOS menu-bar app. On-device, open source, and the duck falls asleep whe
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/popover-ducked-dark.png">
-    <img src="docs/images/popover-ducked.png" width="340" alt="AutoDuck popover while ducked: speech 91%, music 22%, level −31 dB, volume lowered to 19%">
+    <img src="docs/images/popover-ducked.png" width="340" alt="Mr. AutoDuck popover while ducked: speech 91%, music 22%, level −31 dB, volume lowered to 19%">
   </picture>
 </p>
 
@@ -28,8 +28,8 @@ A tiny macOS menu-bar app. On-device, open source, and the duck falls asleep whe
 You like your music loud. You also live with people. Every "hey, got a sec?" means scrambling for the
 volume keys, losing your thread, and the vibe is gone.
 
-AutoDuck is **cinematic audio ducking for real rooms**: it listens through the Mac's microphone,
-ignores the music the Mac itself is playing, and when it hears a human voice it fades the system volume
+Mr. AutoDuck is **cinematic audio ducking for real rooms**: he listens through the Mac's microphone,
+ignores the music the Mac itself is playing, and when he hears a human voice he fades the system volume
 down to a level you can talk over. A few seconds of quiet later, the music swells back. You never touch a key.
 
 <p align="center">
@@ -44,7 +44,7 @@ down to a level you can talk over. A few seconds of quiet later, the music swell
 - **Decides like a person would.** Apple's on-device sound classifier has to say *speech* **and** the
   voice has to be loud enough to be in the room — for about a second — before it acts. Both are live
   meters in the popover, with markers, so you can see exactly why it ducked.
-- **Gets out of your way.** Touch the volume keys while it's ducked and it hands control back until the
+- **Gets out of your way.** Touch the volume keys while he's ducked and he hands control back until the
   conversation ends. Quit (or crash) and your volume is restored.
 - **Stays invisible.** A menu-bar duck. No window, no dock icon, no notifications. ⌥⌘L pauses it anywhere.
 - **Private by construction.** Audio is analysed in memory and discarded. No recordings, no uploads,
@@ -55,11 +55,11 @@ down to a level you can talk over. A few seconds of quiet later, the music swell
 Pre-release — there is no notarized download yet. Building takes one command (Xcode 15+ / macOS 14+):
 
 ```sh
-git clone https://github.com/Sanforing/AutoDuck.git && cd AutoDuck
-Scripts/build-app.sh --run        # → build/AutoDuck.app, launched; look for the duck in the menu bar
+git clone https://github.com/Sanforing/MrAutoDuck.git && cd MrAutoDuck
+Scripts/build-app.sh --run        # → "build/Mr. AutoDuck.app", launched; look for the duck in the menu bar
 ```
 
-Grant microphone access when asked (that's the whole job). Then play something loud and say hello from
+Grant microphone access when asked (that's his whole job). Then play something loud and say hello from
 across the room.
 
 > Sign with your own identity to keep the permission across rebuilds:
@@ -93,16 +93,16 @@ Measured on a MacBook Pro, macOS 26 — the findings that shaped the code:
 - macOS ducks *other apps'* audio whenever a voice-processing unit runs. Set
   `voiceProcessingOtherAudioDuckingConfiguration` to `.min` or the system fights your own ducking.
 
-The probes that produced those numbers are in [`Sources/AutoDuck/Probe.swift`](Sources/AutoDuck/Probe.swift)
-(`open build/AutoDuck.app --args --probe4 /path/to/song.mp3`). Key files:
+The probes that produced those numbers are in [`Sources/MrAutoDuck/Probe.swift`](Sources/MrAutoDuck/Probe.swift)
+(`open "build/Mr. AutoDuck.app" --args --probe4 /path/to/song.mp3`). Key files:
 
 | File | Role |
 |---|---|
-| [`Audio/MicMonitor.swift`](Sources/AutoDuck/Audio/MicMonitor.swift) | Voice-processing input, classifier, level statistics, Apple-VAD mode |
-| [`Audio/VoiceActivityGate.swift`](Sources/AutoDuck/Audio/VoiceActivityGate.swift) | Debounce + hold → "someone is talking" |
-| [`Audio/Ducker.swift`](Sources/AutoDuck/Audio/Ducker.swift) | Volume state machine, user-override handling |
-| [`Audio/VolumeController.swift`](Sources/AutoDuck/Audio/VolumeController.swift) | Core Audio get/set volume, device & volume listeners |
-| [`UI/MenuView.swift`](Sources/AutoDuck/UI/MenuView.swift), [`UI/DuckIcon.swift`](Sources/AutoDuck/UI/DuckIcon.swift) | The popover and the vector duck |
+| [`Audio/MicMonitor.swift`](Sources/MrAutoDuck/Audio/MicMonitor.swift) | Voice-processing input, classifier, level statistics, Apple-VAD mode |
+| [`Audio/VoiceActivityGate.swift`](Sources/MrAutoDuck/Audio/VoiceActivityGate.swift) | Debounce + hold → "someone is talking" |
+| [`Audio/Ducker.swift`](Sources/MrAutoDuck/Audio/Ducker.swift) | Volume state machine, user-override handling |
+| [`Audio/VolumeController.swift`](Sources/MrAutoDuck/Audio/VolumeController.swift) | Core Audio get/set volume, device & volume listeners |
+| [`UI/MenuView.swift`](Sources/MrAutoDuck/UI/MenuView.swift), [`UI/DuckIcon.swift`](Sources/MrAutoDuck/UI/DuckIcon.swift) | The popover and the vector duck |
 
 ## Settings
 
@@ -139,7 +139,7 @@ EN + 繁中 · "say something from the couch" calibration. The quality bar 1.0 h
 ## Logs & diagnostics
 
 ```sh
-/usr/bin/log stream --predicate 'subsystem == "com.autoduck.app"' --level info   # zsh shadows `log`
+/usr/bin/log stream --predicate 'subsystem == "com.mrautoduck.app"' --level info   # zsh shadows `log`
 ```
 
 ## Contributing
@@ -149,7 +149,7 @@ touches disk or network; the UI stays calm; error messages say what happened and
 
 ## License
 
-Code: [GPLv3](LICENSE). The AutoDuck name, duck mascot and icon are trademarks of Playwithspect — forks,
+Code: [GPLv3](LICENSE). The Mr. AutoDuck name, duck mascot and icon are trademarks of Playwithspect — forks,
 please pick your own name and duck ([TRADEMARK.md](TRADEMARK.md)).
 
 A notarized, auto-updating build will be sold for a small one-time price to keep the side quest funded;
@@ -164,4 +164,4 @@ building from source is always free.
   </picture>
 </p>
 <p align="center">A side quest by <strong>Playwithspect</strong> — playful at heart, respectful in craft.<br>
-If AutoDuck saved your vibe, a ⭐ helps the next loud-music household find it.</p>
+If Mr. AutoDuck saved your vibe, a ⭐ helps the next loud-music household find him.</p>

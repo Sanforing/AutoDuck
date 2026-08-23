@@ -1,18 +1,19 @@
 #!/bin/zsh
-# Builds AutoDuck with SwiftPM and wraps it into build/AutoDuck.app.
+# Builds Mr. AutoDuck with SwiftPM and wraps it into "build/Mr. AutoDuck.app".
 #
-#   Scripts/build-app.sh            # release build -> build/AutoDuck.app
+#   Scripts/build-app.sh            # release build -> "build/Mr. AutoDuck.app"
 #   Scripts/build-app.sh --run      # ...and (re)launch it
 #   CONFIG=debug Scripts/build-app.sh
 #   SIGN_IDENTITY="Apple Development: ..." Scripts/build-app.sh   # stable signature => mic permission survives rebuilds
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP_NAME="AutoDuck"
-BUNDLE_ID="${BUNDLE_ID:-com.autoduck.app}"
+APP_NAME="MrAutoDuck"                 # executable / process name
+BUNDLE_NAME="Mr. AutoDuck"            # what Finder shows
+BUNDLE_ID="${BUNDLE_ID:-com.mrautoduck.app}"
 CONFIG="${CONFIG:-release}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"   # "-" = ad-hoc
-APP="build/${APP_NAME}.app"
+APP="build/${BUNDLE_NAME}.app"
 
 swift build -c "$CONFIG"
 
@@ -32,5 +33,5 @@ if [[ "${1:-}" == "--run" ]]; then
   pkill -x "$APP_NAME" 2>/dev/null || true
   sleep 0.3
   open "$APP"
-  echo "Launched $APP_NAME (look for the speaker icon in the menu bar)"
+  echo "Launched $BUNDLE_NAME (look for the duck in the menu bar)"
 fi

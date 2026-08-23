@@ -5,7 +5,7 @@ import AppKit
 ///
 /// - `.resting`  — dot eye: listening, music playing normally
 /// - `.sleeping` — closed "U" eye + a little z: music is resting (ducked)
-/// - `.paused`   — faded duck: AutoDuck is switched off
+/// - `.paused`   — faded duck: Mr. AutoDuck is switched off
 enum DuckIcon {
     enum Style: Equatable { case resting, sleeping, paused }
 

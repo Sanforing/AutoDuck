@@ -1,6 +1,6 @@
 import AppKit
 
-// Renders the AutoDuck app icon (1024×1024): teal rounded square, flat yellow duck quacking
+// Renders the Mr. AutoDuck app icon (1024×1024): teal rounded square, flat yellow duck quacking
 // soundwaves at a white volume-down symbol. Output is packed into AppIcon.icns by make-icon.sh.
 let size = 1024
 let out = CommandLine.arguments[1]

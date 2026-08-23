@@ -52,9 +52,9 @@ final class AppModel: ObservableObject {
     }
 
     private init() {
-        if Self.isDeveloperMode, let ephemeral = UserDefaults(suiteName: "com.autoduck.developer-mode") {
+        if Self.isDeveloperMode, let ephemeral = UserDefaults(suiteName: "com.mrautoduck.developer-mode") {
             // Diagnostics and docs rendering must never read or write the user's real preferences.
-            ephemeral.removePersistentDomain(forName: "com.autoduck.developer-mode")
+            ephemeral.removePersistentDomain(forName: "com.mrautoduck.developer-mode")
             settings = AppSettings(defaults: ephemeral)
         } else {
             settings = AppSettings()
@@ -65,7 +65,7 @@ final class AppModel: ObservableObject {
         applySettings()
         refreshOutputInfo()
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        Log.app.info("AutoDuck starting (enabled: \(self.settings.isEnabled))")
+        Log.app.info("Mr. AutoDuck starting (enabled: \(self.settings.isEnabled))")
         if settings.isEnabled && !Self.isDeveloperMode { startListening() }
     }
 

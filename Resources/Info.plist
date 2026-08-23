@@ -5,15 +5,15 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>AutoDuck</string>
+	<string>Mr. AutoDuck</string>
 	<key>CFBundleExecutable</key>
-	<string>AutoDuck</string>
+	<string>MrAutoDuck</string>
 	<key>CFBundleIdentifier</key>
 	<string>__BUNDLE_ID__</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>AutoDuck</string>
+	<string>Mr. AutoDuck</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,6 +27,6 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>AutoDuck listens for people talking in the room so it can lower your music for a comfortable conversation. Audio is analysed on this Mac only and is never recorded or sent anywhere.</string>
+	<string>Mr. AutoDuck listens for people talking in the room so it can lower your music for a comfortable conversation. Audio is analysed on this Mac only and is never recorded or sent anywhere.</string>
 </dict>
 </plist>

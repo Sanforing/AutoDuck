@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct AutoDuckApp: App {
+struct MrAutoDuckApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel.shared
 

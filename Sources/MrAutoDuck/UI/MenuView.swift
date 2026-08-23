@@ -31,7 +31,7 @@ struct MenuView: View {
                 .font(.title3)
                 .foregroundStyle(model.settings.isEnabled ? Color.accentColor : Color.secondary)
                 .frame(width: 24)
-            Text("AutoDuck").font(.headline)
+            Text("Mr. AutoDuck").font(.headline)
             Spacer()
             Toggle("", isOn: $settings.isEnabled)
                 .toggleStyle(.switch)
@@ -145,7 +145,7 @@ struct MenuView: View {
             Toggle("Launch at login", isOn: Binding(
                 get: { model.launchAtLogin },
                 set: { model.setLaunchAtLogin($0) }))
-            Toggle("⌥⌘L toggles AutoDuck", isOn: $settings.hotkeyEnabled)
+            Toggle("⌥⌘L toggles Mr. AutoDuck", isOn: $settings.hotkeyEnabled)
         }
         .font(.caption)
         .toggleStyle(.checkbox)

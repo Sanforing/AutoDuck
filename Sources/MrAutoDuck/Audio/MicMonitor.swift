@@ -65,7 +65,7 @@ final class MicMonitor {
     private var analyzer: SNAudioStreamAnalyzer?
     private var observer: ClassificationObserver?
     private var configObserver: NSObjectProtocol?
-    private let analysisQueue = DispatchQueue(label: "com.autoduck.analysis", qos: .userInitiated)
+    private let analysisQueue = DispatchQueue(label: "com.mrautoduck.analysis", qos: .userInitiated)
 
     // Recent per-buffer levels, for the per-window level statistic. Guarded by `levelLock`.
     private let levelLock = NSLock()
@@ -114,7 +114,7 @@ final class MicMonitor {
         case .appleVAD:
             guard voiceProcessingActive else {
                 self.engine = nil
-                throw NSError(domain: "AutoDuck", code: 1, userInfo: [NSLocalizedDescriptionKey: "Apple voice detector needs voice processing, which is unavailable"])
+                throw NSError(domain: "MrAutoDuck", code: 1, userInfo: [NSLocalizedDescriptionKey: "Apple voice detector needs voice processing, which is unavailable"])
             }
             let ok = input.setMutedSpeechActivityEventListener { [weak self] event in
                 let talking = (event == .started)

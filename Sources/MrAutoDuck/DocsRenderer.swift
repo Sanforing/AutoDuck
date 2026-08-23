@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Developer tool: `open -n -W build/AutoDuck.app --args --render-docs /abs/output/dir`
+/// Developer tool: `open -n -W "build/Mr. AutoDuck.app" --args --render-docs /abs/output/dir`
 /// Renders the real popover UI with representative values to PNG files for the README.
 /// Uses an off-screen window + `cacheDisplay` so AppKit-backed controls (sliders, toggles) render.
 enum DocsRenderer {

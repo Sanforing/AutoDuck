@@ -1,4 +1,4 @@
-# Testing AutoDuck in a real room
+# Testing Mr. AutoDuck in a real room
 
 Detection is the whole product, and it was tuned in one room on one Mac. Reports from other rooms,
 speakers and Macs are the most useful contribution you can make. Here's how to produce one.
@@ -31,7 +31,7 @@ Open an issue titled `Room report: <Mac model> / <speakers>` with:
 - Sensitivity and detector mode used,
 - a screenshot of the popover meters during a false trigger or a miss,
 - the unified log around it:
-  `/usr/bin/log show --predicate 'subsystem == "com.autoduck.app"' --last 5m --info`
+  `/usr/bin/log show --predicate 'subsystem == "com.mrautoduck.app"' --last 5m --info`
 
-If you're comfortable with it, `open build/AutoDuck.app --args --probe4 /path/to/a/song.mp3` writes
-`~/Library/Logs/AutoDuck/probe.log` with raw vs. echo-cancelled levels — attach that too.
+If you're comfortable with it, `open "build/Mr. AutoDuck.app" --args --probe4 /path/to/a/song.mp3` writes
+`~/Library/Logs/Mr. AutoDuck/probe.log` with raw vs. echo-cancelled levels — attach that too.

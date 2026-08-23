@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "AutoDuck",
+    name: "MrAutoDuck",
     platforms: [.macOS(.v14)],
     targets: [
         .executableTarget(
-            name: "AutoDuck",
-            path: "Sources/AutoDuck"
+            name: "MrAutoDuck",
+            path: "Sources/MrAutoDuck"
         )
     ]
 )

@@ -27,19 +27,19 @@ jobs:
       - name: Build (release)
         run: swift build -c release
 
-      - name: Bundle AutoDuck.app
+      - name: Bundle Mr. AutoDuck.app
         run: Scripts/build-app.sh
 
       - name: Verify bundle
         run: |
-          test -x build/AutoDuck.app/Contents/MacOS/AutoDuck
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/AutoDuck.app/Contents/Info.plist
-          codesign -dv build/AutoDuck.app 2>&1 | head -3
+          test -x "build/Mr. AutoDuck.app/Contents/MacOS/MrAutoDuck"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "build/Mr. AutoDuck.app/Contents/Info.plist"
+          codesign -dv "build/Mr. AutoDuck.app" 2>&1 | head -3
 
       - name: Upload app (unsigned, pre-release)
         uses: actions/upload-artifact@v4
         with:
-          name: AutoDuck-${{ github.sha }}
-          path: build/AutoDuck.app
+          name: MrAutoDuck-${{ github.sha }}
+          path: build/Mr. AutoDuck.app
           if-no-files-found: error
           retention-days: 14

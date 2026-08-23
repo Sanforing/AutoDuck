@@ -28,7 +28,7 @@ final class AppSettings: ObservableObject {
     /// Don't bother ducking if the music is already at or below this level (0...1).
     @Published var minimumBaseline: Double { didSet { defaults.set(minimumBaseline, forKey: Key.minimumBaseline) } }
 
-    /// ⌥⌘L toggles AutoDuck on/off from anywhere.
+    /// ⌥⌘L toggles Mr. AutoDuck on/off from anywhere.
     @Published var hotkeyEnabled: Bool { didSet { defaults.set(hotkeyEnabled, forKey: Key.hotkeyEnabled) } }
 
     /// Which detector decides "a person is talking". See `DetectionMode`.

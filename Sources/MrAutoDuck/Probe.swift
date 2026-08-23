@@ -2,15 +2,15 @@ import AVFoundation
 import CoreAudio
 import Foundation
 
-/// Diagnostic mode: `open build/AutoDuck.app --args --probe`
+/// Diagnostic mode: `open "build/Mr. AutoDuck.app" --args --probe`
 /// Tries several AVAudioEngine configurations and writes what happens to
-/// ~/Library/Logs/AutoDuck/probe.log. Used during development only.
+/// ~/Library/Logs/MrAutoDuck/probe.log. Used during development only.
 enum Probe {
     static var isActive: Bool { CommandLine.arguments.contains("--probe") }
 
     private static let logURL: URL = {
         let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/AutoDuck", isDirectory: true)
+            .appendingPathComponent("Library/Logs/MrAutoDuck", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("probe.log")
     }()
@@ -208,7 +208,7 @@ extension Probe {
         RunLoop.current.run(until: Date().addingTimeInterval(1.0))
         let say = Process()
         say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-        say.arguments = ["-r", "180", "Testing, one two three. This is AutoDuck checking echo cancellation."]
+        say.arguments = ["-r", "180", "Testing, one two three. This is Mr. AutoDuck checking echo cancellation."]
         try? say.run()
         RunLoop.current.run(until: Date().addingTimeInterval(4.5))
         input.removeTap(onBus: 0)
