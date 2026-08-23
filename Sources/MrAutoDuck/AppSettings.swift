@@ -34,8 +34,16 @@ final class AppSettings: ObservableObject {
     /// Which detector decides "a person is talking". See `DetectionMode`.
     @Published var detectionMode: DetectionMode { didSet { defaults.set(detectionMode.rawValue, forKey: Key.detectionMode) } }
 
+    /// Set while the microphone is starting and cleared once it's running. If it's still set at
+    /// launch, the last start never finished (a crash in the audio stack) — so don't repeat it blindly.
+    var micStartPending: Bool {
+        get { defaults.bool(forKey: Key.micStartPending) }
+        set { defaults.set(newValue, forKey: Key.micStartPending) }
+    }
+
     private enum Key {
         static let isEnabled = "isEnabled"
+        static let micStartPending = "micStartPending"
         static let sensitivity = "sensitivity"
         static let duckFraction = "duckFraction"
         static let fadeDownSeconds = "fadeDownSeconds"

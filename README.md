@@ -90,8 +90,23 @@ Measured on a MacBook Pro, macOS 26 — the findings that shaped the code:
   off, a real person in the room measured 8–15 dB above that residue, which is what the level gate uses.
 - Muting the VPIO input mutes it for **every** engine in the process, and a raw engine created after a
   VPIO engine produces no buffers — so the two detectors are modes, not parallel signals.
-- macOS ducks *other apps'* audio whenever a voice-processing unit runs. Set
-  `voiceProcessingOtherAudioDuckingConfiguration` to `.min` or the system fights your own ducking.
+- macOS ducks *other apps'* audio whenever a voice-processing unit runs — and not only the layer that
+  `voiceProcessingOtherAudioDuckingConfiguration` controls. At unit **creation** it applies a flat
+  **−15 dB** `AudioDeviceDuck` to the output device that no public API removes: music sounds "behind a
+  door" the whole time you listen. Duck state is per HAL client, so calling the same (private)
+  `AudioDeviceDuck(device, 1.0, …)` from your own process lifts your duck and nobody else's
+  ([`SystemDuck.swift`](Sources/MrAutoDuck/Audio/SystemDuck.swift)). Keep the configurable layer on
+  `enableAdvancedDucking: true` so it only ducks while voice is actually heard.
+- On macOS 26, `AVAudioEngineConfigurationChange` often fires ~35 ms after a voice-processing start
+  **without stopping the engine** (the unit rebuilds its private aggregate device; near-guaranteed with
+  any Bluetooth device connected). Restarting on every notification = an infinite restart loop that
+  makes every other app's playback stutter. Check `engine.isRunning` and restart only if it really stopped.
+- Never listen through a **Bluetooth headset's mic**: opening it drops the headset into the hands-free
+  profile and everything it plays turns muffled and mono. VPIO keeps its input device on AU element 1
+  (element 0 is the output/echo reference) — re-point it at the built-in mic, and read the tap sample
+  rate from the unit itself, because the node's cached formats go stale after the switch.
+- Never `engine.prepare()` before `installTap` — an initialised unit refuses the format change and
+  `installTap` throws an uncatchable Objective-C exception (a crash loop, if the mic starts at launch).
 
 The probes that produced those numbers are in [`Sources/MrAutoDuck/Probe.swift`](Sources/MrAutoDuck/Probe.swift)
 (`open "build/Mr. AutoDuck.app" --args --probe4 /path/to/song.mp3`). Key files:
@@ -124,6 +139,9 @@ It won't bother ducking if your volume is already ≤ 15 %.
   mic is next on the list.
 - **Bluetooth / AirPlay output:** the extra latency hurts echo cancellation; expect more false triggers.
   Built-in or wired speakers are the target.
+- **Bluetooth headset mics are never used.** Opening an AirPods-style mic drops the headset into its
+  hands-free profile and everything it plays turns muffled and mono. If your default input is a
+  Bluetooth headset, Mr. AutoDuck listens through the Mac's built-in mic instead (the popover says which).
 - **Very loud music** distorts the speakers and leaves more echo residue — lower Sensitivity.
 - **TV or a podcast in the room** is speech and will duck the music. By design, but worth knowing.
 - It ducks even when nothing is playing (harmless; it restores). "Only when something is playing" is planned.

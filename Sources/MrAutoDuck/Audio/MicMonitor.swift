@@ -39,6 +39,11 @@ enum DetectionMode: String, CaseIterable, Identifiable {
 ///    speech* to the classifier, so the classifier alone isn't enough — hence the level gate.
 ///  * Muting the VPIO input mutes it for every engine in the process, so the two modes can't run
 ///    side by side.
+///  * Never listen through a Bluetooth headset's mic: opening it drops the headset into the
+///    hands-free profile (everything it plays turns muffled and mono) and the profile switching makes
+///    playback stutter. The VPIO unit keeps its input device on element 1 and its output/echo-reference
+///    device on element 0; plain AUHAL keeps one device on element 0. After re-pointing the unit, the
+///    node's *input* format refreshes on `prepare()` while its cached output (client) format doesn't.
 final class MicMonitor {
     struct Scores {
         let speech: Float       // max confidence over "talking" labels
@@ -60,6 +65,10 @@ final class MicMonitor {
     private(set) var mode: DetectionMode = .classifier
     private(set) var voiceProcessingActive = false
     private(set) var inputFormatDescription = ""
+    /// The microphone we're listening with.
+    private(set) var inputDeviceName = ""
+    /// The system default input we deliberately left alone (a Bluetooth headset mic), if any.
+    private(set) var skippedInputDeviceName: String?
 
     private var engine: AVAudioEngine?
     private var analyzer: SNAudioStreamAnalyzer?
@@ -75,34 +84,87 @@ final class MicMonitor {
     func start(mode: DetectionMode) throws {
         guard !isRunning else { return }
         self.mode = mode
+        let choice = AudioDevices.preferredInput()
+        guard let choice, choice.skippedDefault != nil else {
+            try startEngine(mode: mode, choice: nil, allowVoiceProcessing: true)
+            return
+        }
+        // The default input is a Bluetooth headset mic. In order of preference:
+        //  1. the room mic through the voice-processing unit (echo cancellation kept),
+        //  2. the room mic raw — no echo cancellation, which is fine while the music plays in headphones,
+        //  3. the Bluetooth mic itself, as a last resort (the user gets the muffling, but detection works).
+        do {
+            try startEngine(mode: mode, choice: choice, allowVoiceProcessing: true)
+        } catch {
+            Log.audio.error("Mic failed with \(choice.device.name, privacy: .public) + voice processing: \(error.localizedDescription, privacy: .public); trying without")
+            teardownEngine()
+            do {
+                try startEngine(mode: mode, choice: choice, allowVoiceProcessing: false)
+            } catch {
+                Log.audio.error("Mic failed with \(choice.device.name, privacy: .public) raw: \(error.localizedDescription, privacy: .public); falling back to the default input")
+                teardownEngine()
+                try startEngine(mode: mode, choice: nil, allowVoiceProcessing: true)
+            }
+        }
+    }
+
+    /// Builds and starts a fresh engine. `choice == nil` means "use whatever the system default is".
+    private func startEngine(mode: DetectionMode, choice: AudioDevices.Choice?, allowVoiceProcessing: Bool) throws {
         let engine = AVAudioEngine()
         self.engine = engine
         let input = engine.inputNode
 
         // Echo cancellation is the whole trick: without it the mic would "hear" the singer in the song.
-        do {
-            try input.setVoiceProcessingEnabled(true)
-            voiceProcessingActive = input.isVoiceProcessingEnabled
-        } catch {
-            voiceProcessingActive = false
-            Log.audio.error("Voice processing unavailable, falling back to raw mic: \(error.localizedDescription, privacy: .public)")
+        voiceProcessingActive = false
+        if allowVoiceProcessing {
+            do {
+                try input.setVoiceProcessingEnabled(true)
+                voiceProcessingActive = input.isVoiceProcessingEnabled
+            } catch {
+                Log.audio.error("Voice processing unavailable, falling back to raw mic: \(error.localizedDescription, privacy: .public)")
+            }
         }
         if voiceProcessingActive {
-            // macOS ducks *other apps'* audio whenever a voice-processing unit runs. Ask for the minimum —
-            // lowering the music is our job, and we want to do it on our own terms.
+            // macOS ducks *other apps'* audio whenever a voice-processing unit runs: with "advanced" off it
+            // is a static cut for as long as we run (even `.min` is -4 dB — audibly "a bit lower" the
+            // moment the duck is switched on; seen as `AudioDeviceDuck(dev, 0.63)` in CoreAudio's log).
+            // "Advanced" ducking only cuts while the unit hears voice — which is when we're ducking hard
+            // anyway — and leaves the music alone the rest of the time. Lowering the music is our job.
             input.voiceProcessingOtherAudioDuckingConfiguration =
-                AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
+                AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: true, duckingLevel: .min)
             // AGC would pump quiet echo residue up to "speech" levels; we want honest levels.
             input.isVoiceProcessingAGCEnabled = false
         }
 
+        // Which microphone. The default, unless that's a Bluetooth headset (see the class comment).
+        skippedInputDeviceName = nil
+        if let choice, let skipped = choice.skippedDefault {
+            if select(choice.device, on: input) {
+                skippedInputDeviceName = skipped.name
+                inputDeviceName = choice.device.name
+                Log.audio.notice("Listening with \(choice.device.name, privacy: .public) instead of the Bluetooth mic \(skipped.name, privacy: .public)")
+            } else {
+                Log.audio.error("Could not switch the mic to \(choice.device.name, privacy: .public); staying on \(skipped.name, privacy: .public)")
+                inputDeviceName = skipped.name
+            }
+        } else {
+            inputDeviceName = choice?.device.name ?? AudioDevices.name(of: AudioDevices.defaultInputDeviceID())
+        }
+
+        // The tap must run at the I/O unit's *device-side* sample rate — installTap throws an
+        // Objective-C exception (uncatchable, fatal) otherwise. After a device switch the node's cached
+        // formats still show the old device, so ask the unit itself. And never prepare() before the tap
+        // is installed: an initialised unit refuses format changes, which is the same fatal exception.
+        let hardwareFormat = input.inputFormat(forBus: 0)
         let nodeFormat = input.outputFormat(forBus: 0)
-        guard nodeFormat.sampleRate > 0, nodeFormat.channelCount > 0,
-              let format = AVAudioFormat(standardFormatWithSampleRate: nodeFormat.sampleRate, channels: 1) else {
+        let unitRate = deviceSideSampleRate(of: input)
+        let tapRate = unitRate > 0 ? unitRate : (hardwareFormat.sampleRate > 0 ? hardwareFormat.sampleRate : nodeFormat.sampleRate)
+        guard tapRate > 0, nodeFormat.channelCount > 0 || hardwareFormat.channelCount > 0,
+              let format = AVAudioFormat(standardFormatWithSampleRate: tapRate, channels: 1) else {
             self.engine = nil
             throw MicError.noInputDevice
         }
-        inputFormatDescription = "\(Int(format.sampleRate)) Hz mono (node \(nodeFormat.channelCount) ch), VPIO \(voiceProcessingActive ? "on" : "off"), mode \(mode.rawValue)"
+        inputFormatDescription = "\(inputDeviceName): unit \(Int(unitRate)) Hz, hw \(Int(hardwareFormat.sampleRate)) Hz \(hardwareFormat.channelCount) ch, node \(Int(nodeFormat.sampleRate)) Hz \(nodeFormat.channelCount) ch, tap \(Int(format.sampleRate)) Hz mono, VPIO \(voiceProcessingActive ? "on" : "off"), mode \(mode.rawValue)"
         Log.audio.info("Mic input: \(self.inputFormatDescription, privacy: .public)")
 
         switch mode {
@@ -126,17 +188,57 @@ final class MicMonitor {
 
         configObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
-        ) { [weak self] _ in
-            Log.audio.info("Audio engine configuration changed")
-            self?.onConfigurationChange?()
+        ) { [weak self, weak engine] _ in
+            guard let self, let engine, engine === self.engine else { return }
+            if engine.isRunning {
+                // macOS 26 posts this when the voice-processing unit rebuilds its aggregate device right
+                // after start — without stopping the engine. Restarting on it was a self-inflicted loop
+                // that made other apps' playback stutter (a Bluetooth device in the mix makes it certain).
+                Log.audio.info("Audio engine configuration changed; still running, carrying on")
+                if self.voiceProcessingActive { SystemDuck.release(on: AudioDevices.defaultOutputDeviceID()) }
+            } else {
+                Log.audio.info("Audio engine configuration changed; engine stopped, restarting")
+                self.onConfigurationChange?()
+            }
         }
 
         engine.prepare()
         try engine.start()
         isRunning = true
+
+        if voiceProcessingActive {
+            // Lift the ~15 dB "voice chat" duck macOS put on the output device at unit creation
+            // (see SystemDuck) — once now, and again after the unit's setup has settled.
+            SystemDuck.release(on: AudioDevices.defaultOutputDeviceID())
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self, weak engine] in
+                guard let self, let engine, self.engine === engine, engine.isRunning else { return }
+                SystemDuck.release(on: AudioDevices.defaultOutputDeviceID())
+            }
+        }
+
+        if let skipped = choice?.skippedDefault, skippedInputDeviceName != nil {
+            // Two seconds in: did the unit keep our mic, and did the Bluetooth mic stay closed?
+            let element: AudioUnitElement = voiceProcessingActive ? 1 : 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self, weak engine] in
+                guard let self, let engine, self.engine === engine, engine.isRunning else { return }
+                var device = AudioDeviceID(kAudioObjectUnknown)
+                var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+                if let unit = engine.inputNode.audioUnit {
+                    AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, element, &device, &size)
+                }
+                let hw = engine.inputNode.inputFormat(forBus: 0)
+                let btState = AudioDevices.isRunningSomewhere(skipped.id) ? "in use" : "idle"
+                Log.audio.info("Mic check: unit on \(AudioDevices.name(of: device), privacy: .public) (\(device)), hw \(Int(hw.sampleRate)) Hz; \(skipped.name, privacy: .public) mic is \(btState, privacy: .public)")
+            }
+        }
     }
 
     func stop() {
+        teardownEngine()
+        isRunning = false
+    }
+
+    private func teardownEngine() {
         if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
         configObserver = nil
         if let engine {
@@ -153,7 +255,37 @@ final class MicMonitor {
         }
         observer = nil
         levelLock.lock(); recentLevels.removeAll(); levelLock.unlock()
-        isRunning = false
+    }
+
+    /// Sample rate of the device the I/O unit is actually capturing from (its input-scope format on
+    /// element 1). 0 if unknown.
+    private func deviceSideSampleRate(of input: AVAudioInputNode) -> Double {
+        guard let unit = input.audioUnit else { return 0 }
+        var asbd = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        let status = AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &asbd, &size)
+        return status == noErr ? asbd.mSampleRate : 0
+    }
+
+    /// Points the engine's I/O unit at `device`. Returns false if the unit didn't take it.
+    private func select(_ device: AudioDevices.Device, on input: AVAudioInputNode) -> Bool {
+        guard let unit = input.audioUnit else {
+            Log.audio.error("Input node has no audio unit; cannot choose a mic")
+            return false
+        }
+        // VPIO: element 1 = input device, element 0 = output device (the echo reference). AUHAL: element 0.
+        let element: AudioUnitElement = voiceProcessingActive ? 1 : 0
+        var id = device.id
+        let size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, element, &id, size)
+        var readBack = AudioDeviceID(kAudioObjectUnknown)
+        var readSize = size
+        AudioUnitGetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, element, &readBack, &readSize)
+        if status != noErr || readBack != device.id {
+            Log.audio.error("Setting input device \(device.id) on element \(element) failed: status \(status), unit reports \(readBack)")
+            return false
+        }
+        return true
     }
 
     // MARK: - Classification

@@ -61,11 +61,27 @@ struct MenuView: View {
             }
             .font(.caption)
             .foregroundStyle(.tertiary)
+            if model.micState == .running, !model.inputDeviceName.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: "mic").font(.caption)
+                    Text(model.inputDeviceName).lineLimit(1)
+                    if let skipped = model.skippedInputDeviceName {
+                        Text("· not using the \(skipped) mic (it would muffle playback)")
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            }
             if model.micState == .running && !model.voiceProcessingActive {
-                Label("Echo cancellation unavailable — vocals in songs may trigger ducking",
-                      systemImage: "exclamationmark.triangle")
+                Label(model.skippedInputDeviceName == nil
+                      ? "Echo cancellation unavailable — vocals in songs may trigger ducking"
+                      : "Echo cancellation off — fine while the music plays in your headphones",
+                      systemImage: model.skippedInputDeviceName == nil ? "exclamationmark.triangle" : "headphones")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(model.skippedInputDeviceName == nil ? .orange : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -158,7 +174,7 @@ struct MenuView: View {
                 .controlSize(.small)
                 .disabled(!model.volumeSupported)
             Spacer()
-            Text("v0.1").font(.caption2).foregroundStyle(.tertiary)
+            Text("v0.2").font(.caption2).foregroundStyle(.tertiary)
             Button("Quit") { NSApp.terminate(nil) }
                 .controlSize(.small)
                 .keyboardShortcut("q")

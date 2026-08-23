@@ -36,6 +36,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var outputDeviceName: String = ""
     @Published private(set) var volumeSupported = true
     @Published private(set) var voiceProcessingActive = false
+    /// The microphone we're listening with, and the Bluetooth mic we deliberately skipped (if any).
+    @Published private(set) var inputDeviceName = ""
+    @Published private(set) var skippedInputDeviceName: String?
     @Published private(set) var launchAtLogin = false
 
     private var hotkey: GlobalHotKey?
@@ -45,6 +48,12 @@ final class AppModel: ObservableObject {
     private var restartWorkItem: DispatchWorkItem?
     /// Ignore detections until the echo canceller has had a moment to converge after (re)start.
     private var micWarmupUntil = Date.distantPast
+    /// For backing off when the audio hardware keeps reconfiguring right after every start.
+    private var lastMicStartAt = Date.distantPast
+    private var rapidRestarts = 0
+    /// Last time the mic tap delivered a buffer; a watchdog restarts the mic if that goes quiet.
+    private var lastMicBufferAt = Date.distantPast
+    private var watchdog: Timer?
 
     /// Diagnostic / docs modes that must not start the microphone or touch the volume.
     static var isDeveloperMode: Bool {
@@ -80,7 +89,10 @@ final class AppModel: ObservableObject {
             if self.settings.isEnabled { self.scheduleMicRestart() }
         }
 
-        mic.onLevel = { [weak self] db in self?.levelDB = db }
+        mic.onLevel = { [weak self] db in
+            self?.levelDB = db
+            self?.lastMicBufferAt = Date()
+        }
         mic.onScores = { [weak self] s in
             guard let self else { return }
             self.speechScore = s.speech
@@ -176,12 +188,29 @@ final class AppModel: ObservableObject {
 
     private func startMic() {
         guard settings.isEnabled else { return }
+        if settings.micStartPending {
+            // The previous start never completed — the app most likely crashed inside the audio stack.
+            // Come up paused instead of crashing on every launch; the user can switch it on again.
+            settings.micStartPending = false
+            Log.app.error("Previous mic start never completed (crash?); staying off this launch")
+            wasEnabled = false              // so applySettings() doesn't call stopListening() and clear the message
+            settings.isEnabled = false
+            micState = .failed("the last start crashed, so the duck stayed off — switch on to try again")
+            return
+        }
         micState = .starting
+        settings.micStartPending = true
+        defer { settings.micStartPending = false }
         do {
             try mic.start(mode: settings.detectionMode)
             voiceProcessingActive = mic.voiceProcessingActive
+            inputDeviceName = mic.inputDeviceName
+            skippedInputDeviceName = mic.skippedInputDeviceName
             micWarmupUntil = Date().addingTimeInterval(2.0)
+            lastMicStartAt = Date()
+            lastMicBufferAt = Date()
             micState = .running
+            startWatchdog()
         } catch {
             micState = .failed(error.localizedDescription)
             let ns = error as NSError
@@ -190,10 +219,14 @@ final class AppModel: ObservableObject {
     }
 
     private func stopListening() {
+        watchdog?.invalidate()
+        watchdog = nil
         mic.stop()
         gate.reset()
         ducker.release()
         micState = .idle
+        inputDeviceName = ""
+        skippedInputDeviceName = nil
         levelDB = -120
         windowLevelDB = -120
         speechScore = 0
@@ -203,8 +236,36 @@ final class AppModel: ObservableObject {
         vadTalking = false
     }
 
+    /// Classifier mode delivers ~12 buffers/s. If they stop while we think we're running (a
+    /// configuration change we chose to ride out actually broke capture), restart.
+    private func startWatchdog() {
+        watchdog?.invalidate()
+        guard settings.detectionMode == .classifier else { watchdog = nil; return }
+        let t = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+            guard let self, self.micState == .running, self.mic.isRunning else { return }
+            if Date().timeIntervalSince(self.lastMicBufferAt) > 6 {
+                Log.audio.error("No audio from the mic for 6 s; restarting")
+                self.lastMicBufferAt = Date()
+                self.scheduleMicRestart()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        watchdog = t
+    }
+
     private func scheduleMicRestart() {
         restartWorkItem?.cancel()
+        // A configuration change that lands right after we started means the hardware is churning
+        // (a Bluetooth headset flipping profiles, an aggregate device rebuilding). Restarting instantly
+        // feeds the churn and makes other apps' playback stutter, so back off: 0.6 s, 1.2, 2.4 … 20 s.
+        var delay = 0.6
+        if Date().timeIntervalSince(lastMicStartAt) < 5 {
+            rapidRestarts += 1
+            delay = min(0.6 * pow(2, Double(rapidRestarts)), 20)
+            Log.audio.notice("Mic restart #\(self.rapidRestarts) within 5 s of the last start; waiting \(delay, format: .fixed(precision: 1)) s")
+        } else {
+            rapidRestarts = 0
+        }
         let item = DispatchWorkItem { [weak self] in
             guard let self, self.settings.isEnabled else { return }
             self.mic.stop()
@@ -213,7 +274,7 @@ final class AppModel: ObservableObject {
             self.startListening()
         }
         restartWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: item)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Actions
@@ -259,6 +320,8 @@ final class AppModel: ObservableObject {
         micState = .running
         voiceProcessingActive = true
         outputDeviceName = "MacBook Pro Speakers"
+        inputDeviceName = "MacBook Pro Microphone"
+        skippedInputDeviceName = nil
         volumeSupported = true
         if listening {
             currentVolume = 0.75
