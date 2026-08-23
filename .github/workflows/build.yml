@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: macOS build
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)"
+          xcodebuild -version
+          swift --version
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Bundle AutoDuck.app
+        run: Scripts/build-app.sh
+
+      - name: Verify bundle
+        run: |
+          test -x build/AutoDuck.app/Contents/MacOS/AutoDuck
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/AutoDuck.app/Contents/Info.plist
+          codesign -dv build/AutoDuck.app 2>&1 | head -3
+
+      - name: Upload app (unsigned, pre-release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoDuck-${{ github.sha }}
+          path: build/AutoDuck.app
+          if-no-files-found: error
+          retention-days: 14

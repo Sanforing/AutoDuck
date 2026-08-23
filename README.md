@@ -8,6 +8,7 @@
 A tiny macOS menu-bar app. On-device, open source, and the duck falls asleep when the music rests.</p>
 
 <p align="center">
+  <a href="https://github.com/Sanforing/AutoDuck/actions/workflows/build.yml"><img alt="Build" src="https://github.com/Sanforing/AutoDuck/actions/workflows/build.yml/badge.svg"></a>
   <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111?logo=apple&logoColor=white">
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5.10-F05138?logo=swift&logoColor=white">
   <img alt="License GPLv3" src="https://img.shields.io/badge/license-GPLv3-5FA8A0">
